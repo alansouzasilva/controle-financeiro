@@ -93,6 +93,13 @@
             padding: 12px 18px; font-weight: 700; font-size: 15px;
             border-top: 2px solid #e0e0e0; margin-top: auto;
         }
+        .subtotal-row {
+            display: flex; justify-content: space-between;
+            padding: 6px 18px; font-weight: 600; font-size: 13px;
+            border-top: 1px solid #f0f0f0;
+        }
+        .subtotal-pago { color: #2e7d32; }
+        .subtotal-falta { color: #e53935; }
         .card-cartoes .total-row { color: #e53935; }
         .card-fixas .total-row { color: #00b8d4; }
         .resumo-content {
@@ -193,6 +200,12 @@
                 <th class="col-valor">Fatura (R$)</th>
                 <th class="col-acao"></th>
             </tr></thead><tbody id="tb-cartoes"></tbody></table>
+            <div class="subtotal-row subtotal-pago">
+                <span>Pago</span><span id="pago-cartoes">R$ 0,00</span>
+            </div>
+            <div class="subtotal-row subtotal-falta">
+                <span>Falta Pagar</span><span id="falta-cartoes">R$ 0,00</span>
+            </div>
             <div class="total-row">
                 <span>TOTAL CART&Otilde;ES</span><span id="tot-cartoes">R$ 0,00</span>
             </div>
@@ -213,6 +226,12 @@
                 <th class="col-valor">Valor (R$)</th>
                 <th class="col-acao"></th>
             </tr></thead><tbody id="tb-fixas"></tbody></table>
+            <div class="subtotal-row subtotal-pago">
+                <span>Pago</span><span id="pago-fixas">R$ 0,00</span>
+            </div>
+            <div class="subtotal-row subtotal-falta">
+                <span>Falta Pagar</span><span id="falta-fixas">R$ 0,00</span>
+            </div>
             <div class="total-row">
                 <span>TOTAL FIXAS</span><span id="tot-fixas">R$ 0,00</span>
             </div>
@@ -548,10 +567,18 @@ function onDateChange() {
 function recalc() {
     var tc = data.cartoes.reduce(function(s,c){ return s + c.valor; }, 0);
     var tf = data.fixas.reduce(function(s,f){ return s + f.valor; }, 0);
+    var pagoCartoes = data.cartoes.reduce(function(s,c){ return s + (c.pago ? c.valor : 0); }, 0);
+    var pagoFixas = data.fixas.reduce(function(s,f){ return s + (f.pago ? f.valor : 0); }, 0);
+    var faltaCartoes = tc - pagoCartoes;
+    var faltaFixas = tf - pagoFixas;
     var totalSaidas = tc + tf;
     var saldo = data.entradas - totalSaidas;
     document.getElementById('tot-cartoes').textContent = fmt(tc);
+    document.getElementById('pago-cartoes').textContent = fmt(pagoCartoes);
+    document.getElementById('falta-cartoes').textContent = fmt(faltaCartoes);
     document.getElementById('tot-fixas').textContent = fmt(tf);
+    document.getElementById('pago-fixas').textContent = fmt(pagoFixas);
+    document.getElementById('falta-fixas').textContent = fmt(faltaFixas);
     document.getElementById('r-saidas').textContent = fmt(totalSaidas);
     var sEl = document.getElementById('r-saldo');
     sEl.textContent = fmt(saldo);
