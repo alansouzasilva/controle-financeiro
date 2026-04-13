@@ -54,7 +54,7 @@
         }
         .card-header button:hover { background: rgba(255,255,255,0.45); }
         .card-body { padding: 0; flex: 1; display: flex; flex-direction: column; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
         thead th {
             background: #f5f5f5; text-align: left; padding: 9px 10px;
             font-weight: 700; font-size: 12px; color: #555;
@@ -161,15 +161,24 @@
         }
         th.col-check { width: 36px; text-align: center; }
         th.col-pin { width: 36px; text-align: center; }
-        th.col-nome { width: auto; }
-        th.col-data { width: 120px; }
-        th.col-valor { width: 100px; }
+        th.col-nome { }
+        th.col-data { width: 130px; }
+        th.col-valor { width: 110px; }
         th.col-acao { width: 36px; }
         td.td-check { text-align: center; }
         td.td-pin { text-align: center; }
-        @media (max-width: 800px) {
+        td input[type="date"] { width: 100%; min-width: 0; font-size: 12px; }
+        @media (max-width: 900px) {
             .grid { grid-template-columns: 1fr; }
             .resumo-content { flex-direction: column; }
+        }
+        @media (max-width: 500px) {
+            body { padding: 10px; }
+            th.col-data { width: 105px; }
+            th.col-valor { width: 90px; }
+            td input[type="date"] { font-size: 11px; }
+            .total-row { font-size: 13px; padding: 10px 12px; }
+            .subtotal-row { padding: 5px 12px; font-size: 12px; }
         }
     </style>
 </head>
@@ -365,9 +374,14 @@ function loadMonth() {
     } else {
         data = { entradas: 0, cartoes: [], fixas: [] };
     }
-    applyPinnedFromPrevious();
+    var added = applyPinnedFromPrevious();
     document.getElementById('input-entradas').value = data.entradas;
     renderAll();
+    if (added) {
+        var all2 = getAllData();
+        all2[monthKey()] = JSON.parse(JSON.stringify(data));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(all2));
+    }
 }
 
 function hasPinnedItem(name, list) {
@@ -378,7 +392,9 @@ function hasPinnedItem(name, list) {
 }
 
 function applyPinnedFromPrevious() {
+    var added = false;
     var all = getAllData();
+    // Busca o mês anterior mais recente que tenha dados
     var prevY = currentYear;
     var prevM = currentMonthIdx - 1;
     if (prevM < 0) { prevM = 11; prevY--; }
@@ -386,41 +402,25 @@ function applyPinnedFromPrevious() {
         var key = prevY + '-' + String(prevM+1).padStart(2,'0');
         if (all[key]) {
             var prev = all[key];
-            // Copiar cartoes fixados (nome + vencimento, valor zerado)
             var srcCartoes = prev.cartoes || [];
             srcCartoes.forEach(function(c) {
                 if (c.pinned && !hasPinnedItem(c.nome, data.cartoes)) {
                     var newC = JSON.parse(JSON.stringify(c));
                     newC.pago = false;
                     newC.valor = 0;
-                    if (newC.venc) {
-                        var parts = newC.venc.split('-');
-                        if (parts.length === 3) {
-                            var dia = parseInt(parts[2]);
-                            var lastDay = new Date(currentYear, currentMonthIdx + 1, 0).getDate();
-                            if (dia > lastDay) dia = lastDay;
-                            newC.venc = currentYear + '-' + String(currentMonthIdx+1).padStart(2,'0') + '-' + String(dia).padStart(2,'0');
-                        }
-                    }
+                    newC.venc = adjustDateToMonth(newC.venc, currentYear, currentMonthIdx);
                     data.cartoes.push(newC);
+                    added = true;
                 }
             });
-            // Copiar contas fixas fixadas (nome + valor + data)
             var srcFixas = prev.fixas || prev.boletos || [];
             srcFixas.forEach(function(f) {
                 if (f.pinned && !hasPinnedItem(f.nome, data.fixas)) {
                     var newF = JSON.parse(JSON.stringify(f));
                     newF.pago = false;
-                    if (newF.data) {
-                        var parts = newF.data.split('-');
-                        if (parts.length === 3) {
-                            var dia = parseInt(parts[2]);
-                            var lastDay = new Date(currentYear, currentMonthIdx + 1, 0).getDate();
-                            if (dia > lastDay) dia = lastDay;
-                            newF.data = currentYear + '-' + String(currentMonthIdx+1).padStart(2,'0') + '-' + String(dia).padStart(2,'0');
-                        }
-                    }
+                    newF.data = adjustDateToMonth(newF.data, currentYear, currentMonthIdx);
                     data.fixas.push(newF);
+                    added = true;
                 }
             });
             break;
@@ -428,6 +428,17 @@ function applyPinnedFromPrevious() {
         prevM--;
         if (prevM < 0) { prevM = 11; prevY--; }
     }
+    return added;
+}
+
+function adjustDateToMonth(dateStr, year, monthIdx) {
+    if (!dateStr) return '';
+    var parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    var dia = parseInt(parts[2]);
+    var lastDay = new Date(year, monthIdx + 1, 0).getDate();
+    if (dia > lastDay) dia = lastDay;
+    return year + '-' + String(monthIdx+1).padStart(2,'0') + '-' + String(dia).padStart(2,'0');
 }
 
 function clearMonth() {
@@ -544,12 +555,14 @@ function removeRow(type, idx) {
 function togglePinCartao(idx) {
     collectFromDOM();
     data.cartoes[idx].pinned = !data.cartoes[idx].pinned;
+    saveData(true);
     renderAll();
 }
 
 function togglePinFixa(idx) {
     collectFromDOM();
     data.fixas[idx].pinned = !data.fixas[idx].pinned;
+    saveData(true);
     renderAll();
 }
 
